@@ -288,3 +288,73 @@
   margin-top: 6px;
   opacity: 0.8;
 }
+
+/* Review screen */
+.review-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.review-container video {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  background: #000;
+  display: block;
+  max-height: 400px;
+}
+
+.review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.review-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.review-input-row {
+  display: flex;
+  align-items: center;
+}
+
+.review-input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius) 0 0 var(--radius);
+  border: 1px solid var(--border);
+  border-right: none;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.review-input:focus {
+  border-color: var(--accent);
+}
+
+.review-ext {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+.review-input:focus + .review-ext {
+  border-color: var(--accent);
+}
+
+.review-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}

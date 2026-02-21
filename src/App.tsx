@@ -17,6 +17,8 @@ function App() {
     duration,
     error,
     saveDirName,
+    recordingUrl,
+    defaultName,
     streamRef,
     videoRef,
     pickDirectory,
@@ -28,14 +30,24 @@ function App() {
     resumeRecording,
     stopRecording,
     cancelCapture,
+    saveWithName,
+    discardRecording,
   } = useRecorder();
 
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const [pipPreviewHidden, setPipPreviewHidden] = useState(true);
+  const [fileName, setFileName] = useState("");
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const hasPipSupport = "documentPictureInPicture" in window;
-  const isActive = state !== "idle";
+  const isCapturing = state === "previewing" || state === "recording" || state === "paused";
+
+  // Set default filename when entering review
+  useEffect(() => {
+    if (state === "reviewing") {
+      setFileName(defaultName);
+    }
+  }, [state, defaultName]);
 
   // Sync stream to whichever video element is currently mounted
   useEffect(() => {
@@ -63,7 +75,6 @@ function App() {
         height: 64,
       });
 
-      // Copy stylesheets into PiP window
       for (const sheet of document.styleSheets) {
         try {
           if (sheet.href) {
@@ -93,15 +104,15 @@ function App() {
     }
   }, [pipWindow, hasPipSupport]);
 
-  // Close PiP when recording stops
+  // Close PiP when leaving capture states
   useEffect(() => {
-    if (state === "idle" && pipWindow) {
+    if (!isCapturing && pipWindow) {
       pipWindow.close();
       setPipWindow(null);
     }
-  }, [state, pipWindow]);
+  }, [isCapturing, pipWindow]);
 
-  const renderControls = () => isActive && (
+  const renderControls = () => isCapturing && (
     <div className="controls">
       {(state === "recording" || state === "paused") && (
         <div className={`timer ${state === "recording" ? "recording" : ""}`}>
@@ -130,7 +141,7 @@ function App() {
             </button>
             <button className="btn btn-stop" onClick={stopRecording}>
               <span className="stop-icon" />
-              Stop & Save
+              Stop
             </button>
           </>
         )}
@@ -142,7 +153,7 @@ function App() {
             </button>
             <button className="btn btn-stop" onClick={stopRecording}>
               <span className="stop-icon" />
-              Stop & Save
+              Stop
             </button>
           </>
         )}
@@ -201,7 +212,7 @@ function App() {
 
       {error && <div className="error">{error}</div>}
 
-      {!isActive && !saveDirName && (
+      {state === "idle" && !saveDirName && (
         <div className="start-section">
           <button className="btn btn-primary btn-lg" onClick={pickDirectory}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -213,7 +224,7 @@ function App() {
         </div>
       )}
 
-      {!isActive && saveDirName && (
+      {state === "idle" && saveDirName && (
         <div className="start-section">
           <button className="btn btn-primary btn-lg" onClick={async () => {
             const granted = await ensureDirPermission();
@@ -240,20 +251,56 @@ function App() {
       )}
 
       {/* Main window preview — hidden when PiP is active */}
-      {!pipWindow && (
-        <div className={`preview-container ${isActive ? "active" : ""}`}>
+      {isCapturing && !pipWindow && (
+        <div className="preview-container active">
           <video ref={videoRef} autoPlay muted playsInline />
           {renderControls()}
         </div>
       )}
 
       {/* When PiP is active, show a placeholder in main window */}
-      {pipWindow && isActive && (
+      {pipWindow && isCapturing && (
         <div className="pip-placeholder">
           <p>Playing in Picture-in-Picture</p>
           <button className="btn btn-secondary" onClick={togglePip}>
             Return to window
           </button>
+        </div>
+      )}
+
+      {/* Review screen */}
+      {state === "reviewing" && recordingUrl && (
+        <div className="review-container">
+          <video src={recordingUrl} controls />
+          <div className="review-form">
+            <label className="review-label" htmlFor="filename">File name</label>
+            <div className="review-input-row">
+              <input
+                id="filename"
+                type="text"
+                className="review-input"
+                value={fileName}
+                onChange={(e) => setFileName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && fileName.trim()) saveWithName(fileName.trim());
+                }}
+                autoFocus
+              />
+              <span className="review-ext">.webm</span>
+            </div>
+            <div className="review-actions">
+              <button
+                className="btn btn-primary"
+                onClick={() => saveWithName(fileName.trim())}
+                disabled={!fileName.trim()}
+              >
+                Save
+              </button>
+              <button className="btn btn-secondary" onClick={discardRecording}>
+                Discard
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

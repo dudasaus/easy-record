@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 
-export type RecordingState = "idle" | "previewing" | "recording" | "paused";
+export type RecordingState = "idle" | "previewing" | "recording" | "paused" | "reviewing";
 
 const DB_NAME = "easy-record";
 const STORE_NAME = "settings";
@@ -35,11 +35,17 @@ async function loadDirHandle(): Promise<FileSystemDirectoryHandle | null> {
   });
 }
 
+function makeDefaultName() {
+  return `recording-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+}
+
 export function useRecorder() {
   const [state, setState] = useState<RecordingState>("idle");
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [saveDirName, setSaveDirName] = useState<string | null>(null);
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
+  const [defaultName, setDefaultName] = useState("");
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -47,18 +53,17 @@ export function useRecorder() {
   const timerRef = useRef<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
+  const recordingBlobRef = useRef<Blob | null>(null);
 
   // Restore saved directory handle on mount
   useEffect(() => {
     loadDirHandle().then(async (handle) => {
       if (!handle) return;
-      // Verify we still have permission (don't prompt yet, just check)
       const perm = await (handle as any).queryPermission({ mode: "readwrite" });
       if (perm === "granted") {
         dirHandleRef.current = handle;
         setSaveDirName(handle.name);
       } else {
-        // Store the handle so we can request permission on user gesture
         dirHandleRef.current = handle;
         setSaveDirName(handle.name);
       }
@@ -106,7 +111,6 @@ export function useRecorder() {
     db.close();
   }, []);
 
-  // Re-request permission for a stored handle (needs user gesture)
   const ensureDirPermission = useCallback(async (): Promise<boolean> => {
     const handle = dirHandleRef.current;
     if (!handle) return false;
@@ -128,7 +132,6 @@ export function useRecorder() {
         videoRef.current.srcObject = stream;
       }
 
-      // If user stops sharing via browser UI, clean up
       stream.getVideoTracks()[0].addEventListener("ended", () => {
         stopRecording();
       });
@@ -159,7 +162,14 @@ export function useRecorder() {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
     recorder.onstop = () => {
-      saveRecording();
+      // Build blob and enter review state
+      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      chunksRef.current = [];
+      recordingBlobRef.current = blob;
+      const url = URL.createObjectURL(blob);
+      setRecordingUrl(url);
+      setDefaultName(makeDefaultName());
+      setState("reviewing");
     };
 
     recorder.start(1000);
@@ -198,8 +208,8 @@ export function useRecorder() {
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-    setState("idle");
     setDuration(0);
+    // State transitions to "reviewing" via recorder.onstop
   }, [stopTimer]);
 
   const cancelCapture = useCallback(() => {
@@ -211,40 +221,58 @@ export function useRecorder() {
     setState("idle");
   }, []);
 
-  const saveRecording = useCallback(async () => {
-    const blob = new Blob(chunksRef.current, { type: "video/webm" });
-    chunksRef.current = [];
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const filename = `recording-${timestamp}.webm`;
+  const saveWithName = useCallback(async (name: string) => {
+    const blob = recordingBlobRef.current;
+    if (!blob) return;
 
-    // Write directly to chosen directory if we have a handle
+    const filename = name.endsWith(".webm") ? name : `${name}.webm`;
+
     if (dirHandleRef.current) {
       try {
         const fileHandle = await dirHandleRef.current.getFileHandle(filename, { create: true });
         const writable = await fileHandle.createWritable();
         await writable.write(blob);
         await writable.close();
-        return;
       } catch (e) {
         console.error("Failed to save to directory:", e);
-        // Fall through to download
+        // Fallback: trigger download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
       }
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
     }
 
-    // Fallback: trigger download
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, []);
+    // Clean up
+    if (recordingUrl) URL.revokeObjectURL(recordingUrl);
+    setRecordingUrl(null);
+    recordingBlobRef.current = null;
+    setState("idle");
+  }, [recordingUrl]);
+
+  const discardRecording = useCallback(() => {
+    if (recordingUrl) URL.revokeObjectURL(recordingUrl);
+    setRecordingUrl(null);
+    recordingBlobRef.current = null;
+    setState("idle");
+  }, [recordingUrl]);
 
   return {
     state,
     duration,
     error,
     saveDirName,
+    recordingUrl,
+    defaultName,
     streamRef,
     videoRef,
     pickDirectory,
@@ -256,5 +284,7 @@ export function useRecorder() {
     resumeRecording,
     stopRecording,
     cancelCapture,
+    saveWithName,
+    discardRecording,
   };
 }
