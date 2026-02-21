@@ -25,7 +25,7 @@ export function useRecorder() {
     clearInterval(timerRef.current);
   }, []);
 
-  const startCapture = useCallback(async () => {
+  const startCapture = useCallback(async (): Promise<boolean> => {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -43,13 +43,15 @@ export function useRecorder() {
       });
 
       setState("previewing");
+      return true;
     } catch (e) {
       if (e instanceof DOMException && e.name === "NotAllowedError") {
         // User cancelled the picker, not an error
-        return;
+        return false;
       }
       setError("Failed to start screen capture");
       console.error(e);
+      return false;
     }
   }, []);
 
