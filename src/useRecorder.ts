@@ -228,6 +228,17 @@ export function useRecorder() {
     setState("idle");
   }, []);
 
+  const checkFileExists = useCallback(async (name: string): Promise<boolean> => {
+    const filename = name.endsWith(".webm") ? name : `${name}.webm`;
+    if (!dirHandleRef.current) return false;
+    try {
+      await dirHandleRef.current.getFileHandle(filename);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const saveWithName = useCallback(async (name: string) => {
     const blob = recordingBlobRef.current;
     if (!blob) return;
@@ -291,6 +302,7 @@ export function useRecorder() {
     resumeRecording,
     stopRecording,
     cancelCapture,
+    checkFileExists,
     saveWithName,
     discardRecording,
   };

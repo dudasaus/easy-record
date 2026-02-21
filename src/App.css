@@ -353,6 +353,23 @@
   border-color: var(--accent);
 }
 
+.review-input-warn {
+  border-color: var(--red);
+}
+
+.review-input-warn:focus {
+  border-color: var(--red);
+}
+
+.review-input-warn + .review-ext {
+  border-color: var(--red);
+}
+
+.overwrite-warning {
+  color: var(--red);
+  font-size: 0.8rem;
+}
+
 .review-actions {
   display: flex;
   gap: 0.5rem;

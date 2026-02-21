@@ -30,12 +30,14 @@ function App() {
     resumeRecording,
     stopRecording,
     cancelCapture,
+    checkFileExists,
     saveWithName,
     discardRecording,
   } = useRecorder();
 
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const [pipPreviewHidden, setPipPreviewHidden] = useState(true);
+  const [overwriteWarning, setOverwriteWarning] = useState(false);
   const [fileName, setFileName] = useState("");
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -46,8 +48,27 @@ function App() {
   useEffect(() => {
     if (state === "reviewing") {
       setFileName(defaultName);
+      setOverwriteWarning(false);
     }
   }, [state, defaultName]);
+
+  // Clear overwrite warning when filename changes
+  useEffect(() => {
+    setOverwriteWarning(false);
+  }, [fileName]);
+
+  const handleSave = useCallback(async () => {
+    const name = fileName.trim();
+    if (!name) return;
+    if (!overwriteWarning) {
+      const exists = await checkFileExists(name);
+      if (exists) {
+        setOverwriteWarning(true);
+        return;
+      }
+    }
+    saveWithName(name);
+  }, [fileName, overwriteWarning, checkFileExists, saveWithName]);
 
   // Sync stream to whichever video element is currently mounted
   useEffect(() => {
@@ -285,23 +306,26 @@ function App() {
               <input
                 id="filename"
                 type="text"
-                className="review-input"
+                className={`review-input ${overwriteWarning ? "review-input-warn" : ""}`}
                 value={fileName}
                 onChange={(e) => setFileName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && fileName.trim()) saveWithName(fileName.trim());
+                  if (e.key === "Enter" && fileName.trim()) handleSave();
                 }}
                 autoFocus
               />
               <span className="review-ext">.webm</span>
             </div>
+            {overwriteWarning && (
+              <p className="overwrite-warning">A file with this name already exists. Click save again to overwrite.</p>
+            )}
             <div className="review-actions">
               <button
-                className="btn btn-primary"
-                onClick={() => saveWithName(fileName.trim())}
+                className={`btn ${overwriteWarning ? "btn-stop" : "btn-primary"}`}
+                onClick={handleSave}
                 disabled={!fileName.trim()}
               >
-                Save
+                {overwriteWarning ? "Overwrite" : "Save"}
               </button>
               <button className="btn btn-secondary" onClick={discardRecording}>
                 Discard
