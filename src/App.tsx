@@ -3,6 +3,10 @@ import { createPortal } from "react-dom";
 import { useRecorder } from "./useRecorder";
 import "./App.css";
 
+const PIP_WIDTH = 180;
+const PIP_HEIGHT_COMPACT = 48;
+const PIP_HEIGHT_PREVIEW = 180;
+
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60)
     .toString()
@@ -94,8 +98,8 @@ function App() {
 
     try {
       const pip = await (window as any).documentPictureInPicture.requestWindow({
-        width: 180,
-        height: pipPreviewHidden ? 48 : 180,
+        width: PIP_WIDTH,
+        height: pipPreviewHidden ? PIP_HEIGHT_COMPACT : PIP_HEIGHT_PREVIEW,
       });
 
       for (const sheet of document.styleSheets) {
@@ -208,7 +212,7 @@ function App() {
         setPipPreviewHidden(next);
         localStorage.setItem("pipPreviewHidden", String(next));
         if (pipWindow) {
-          pipWindow.resizeTo(180, next ? 64 : 200);
+          pipWindow.resizeTo(PIP_WIDTH, next ? PIP_HEIGHT_COMPACT : PIP_HEIGHT_PREVIEW);
         }
       }}
       title={pipPreviewHidden ? "Show preview" : "Hide preview"}
