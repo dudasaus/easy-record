@@ -16,7 +16,10 @@ function App() {
     state,
     duration,
     error,
+    saveDirName,
     videoRef,
+    pickDirectory,
+    ensureDirPermission,
     startCapture,
     startRecording,
     pauseRecording,
@@ -102,7 +105,7 @@ function App() {
     }
   }, [state, pipWindow]);
 
-  const controls = isActive && (
+  const renderControls = () => isActive && (
     <div className="controls">
       {(state === "recording" || state === "paused") && (
         <div className={`timer ${state === "recording" ? "recording" : ""}`}>
@@ -163,7 +166,7 @@ function App() {
   const pipContent = pipWindow && (
     <div className={`preview-container active pip-mode ${pipPreviewHidden ? "preview-hidden" : ""}`}>
       {!pipPreviewHidden && <video ref={pipVideoRef} autoPlay muted playsInline />}
-      {controls}
+      {renderControls()}
       <button
         className="btn btn-icon btn-toggle-preview"
         onClick={() => {
@@ -205,6 +208,16 @@ function App() {
       {!isActive && (
         <div className="start-section">
           <button className="btn btn-primary btn-lg" onClick={async () => {
+            if (saveDirName) {
+              const granted = await ensureDirPermission();
+              if (!granted) {
+                const picked = await pickDirectory();
+                if (!picked) return;
+              }
+            } else {
+              const picked = await pickDirectory();
+              if (!picked) return;
+            }
             const ok = await startCapture();
             if (ok && hasPipSupport && !pipWindow) togglePip();
           }}>
@@ -215,7 +228,15 @@ function App() {
             </svg>
             Select Source
           </button>
-          <p className="hint">Choose a screen, window, or browser tab to record</p>
+          {saveDirName ? (
+            <p className="hint">
+              Saving to <strong>{saveDirName}</strong>
+              {" \u2014 "}
+              <button className="btn-link" onClick={pickDirectory}>change</button>
+            </p>
+          ) : (
+            <p className="hint">Choose a save folder, then select a screen to record</p>
+          )}
         </div>
       )}
 
@@ -223,7 +244,7 @@ function App() {
       {!pipWindow && (
         <div className={`preview-container ${isActive ? "active" : ""}`}>
           <video ref={videoRef} autoPlay muted playsInline />
-          {controls}
+          {renderControls()}
         </div>
       )}
 

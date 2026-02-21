@@ -1,17 +1,69 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 
 export type RecordingState = "idle" | "previewing" | "recording" | "paused";
+
+const DB_NAME = "easy-record";
+const STORE_NAME = "settings";
+const DIR_KEY = "saveDir";
+
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(STORE_NAME);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function storeDirHandle(handle: FileSystemDirectoryHandle) {
+  const db = await openDB();
+  const tx = db.transaction(STORE_NAME, "readwrite");
+  tx.objectStore(STORE_NAME).put(handle, DIR_KEY);
+  db.close();
+}
+
+async function loadDirHandle(): Promise<FileSystemDirectoryHandle | null> {
+  const db = await openDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const req = tx.objectStore(STORE_NAME).get(DIR_KEY);
+    req.onsuccess = () => resolve(req.result ?? null);
+    req.onerror = () => resolve(null);
+    db.close();
+  });
+}
 
 export function useRecorder() {
   const [state, setState] = useState<RecordingState>("idle");
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [saveDirName, setSaveDirName] = useState<string | null>(null);
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
+
+  // Restore saved directory handle on mount
+  useEffect(() => {
+    loadDirHandle().then(async (handle) => {
+      if (!handle) return;
+      // Verify we still have permission (don't prompt yet, just check)
+      const perm = await (handle as any).queryPermission({ mode: "readwrite" });
+      if (perm === "granted") {
+        dirHandleRef.current = handle;
+        setSaveDirName(handle.name);
+      } else {
+        // Store the handle so we can request permission on user gesture
+        dirHandleRef.current = handle;
+        setSaveDirName(handle.name);
+      }
+    });
+  }, []);
 
   const startTimer = useCallback(() => {
     setDuration(0);
@@ -23,6 +75,36 @@ export function useRecorder() {
 
   const stopTimer = useCallback(() => {
     clearInterval(timerRef.current);
+  }, []);
+
+  const pickDirectory = useCallback(async (): Promise<boolean> => {
+    if (!("showDirectoryPicker" in window)) return false;
+    try {
+      const handle = await (window as any).showDirectoryPicker({
+        mode: "readwrite",
+        startIn: "videos",
+      });
+      dirHandleRef.current = handle;
+      setSaveDirName(handle.name);
+      await storeDirHandle(handle);
+      return true;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        return false;
+      }
+      console.error("Directory picker failed:", e);
+      return false;
+    }
+  }, []);
+
+  // Re-request permission for a stored handle (needs user gesture)
+  const ensureDirPermission = useCallback(async (): Promise<boolean> => {
+    const handle = dirHandleRef.current;
+    if (!handle) return false;
+    const perm = await (handle as any).queryPermission({ mode: "readwrite" });
+    if (perm === "granted") return true;
+    const req = await (handle as any).requestPermission({ mode: "readwrite" });
+    return req === "granted";
   }, []);
 
   const startCapture = useCallback(async (): Promise<boolean> => {
@@ -46,7 +128,6 @@ export function useRecorder() {
       return true;
     } catch (e) {
       if (e instanceof DOMException && e.name === "NotAllowedError") {
-        // User cancelled the picker, not an error
         return false;
       }
       setError("Failed to start screen capture");
@@ -72,7 +153,7 @@ export function useRecorder() {
       saveRecording();
     };
 
-    recorder.start(1000); // collect data every second
+    recorder.start(1000);
     recorderRef.current = recorder;
     setState("recording");
     startTimer();
@@ -90,7 +171,6 @@ export function useRecorder() {
     if (recorderRef.current?.state === "paused") {
       recorderRef.current.resume();
       setState("recording");
-      // Resume timer from current duration
       const offset = duration;
       const start = Date.now();
       timerRef.current = window.setInterval(() => {
@@ -128,24 +208,17 @@ export function useRecorder() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const filename = `recording-${timestamp}.webm`;
 
-    // Try File System Access API first
-    if ("showSaveFilePicker" in window) {
+    // Write directly to chosen directory if we have a handle
+    if (dirHandleRef.current) {
       try {
-        const handle = await (window as any).showSaveFilePicker({
-          suggestedName: filename,
-          types: [
-            {
-              description: "WebM Video",
-              accept: { "video/webm": [".webm"] },
-            },
-          ],
-        });
-        const writable = await handle.createWritable();
+        const fileHandle = await dirHandleRef.current.getFileHandle(filename, { create: true });
+        const writable = await fileHandle.createWritable();
         await writable.write(blob);
         await writable.close();
         return;
-      } catch {
-        // User cancelled or API failed, fall through to download
+      } catch (e) {
+        console.error("Failed to save to directory:", e);
+        // Fall through to download
       }
     }
 
@@ -162,7 +235,10 @@ export function useRecorder() {
     state,
     duration,
     error,
+    saveDirName,
     videoRef,
+    pickDirectory,
+    ensureDirPermission,
     startCapture,
     startRecording,
     pauseRecording,
