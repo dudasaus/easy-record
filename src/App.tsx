@@ -17,6 +17,7 @@ function App() {
     duration,
     error,
     saveDirName,
+    streamRef,
     videoRef,
     pickDirectory,
     clearDirectory,
@@ -32,24 +33,18 @@ function App() {
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const [pipPreviewHidden, setPipPreviewHidden] = useState(true);
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
 
   const hasPipSupport = "documentPictureInPicture" in window;
   const isActive = state !== "idle";
 
-  // Keep track of the current stream so the PiP video can use it
+  // Sync stream to whichever video element is currently mounted
   useEffect(() => {
-    if (videoRef.current?.srcObject) {
-      streamRef.current = videoRef.current.srcObject as MediaStream;
-    } else {
-      streamRef.current = null;
+    const stream = streamRef.current;
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
     }
-  }, [state, videoRef]);
-
-  // Sync stream to the PiP video element
-  useEffect(() => {
-    if (pipVideoRef.current && streamRef.current) {
-      pipVideoRef.current.srcObject = streamRef.current;
+    if (pipVideoRef.current && stream) {
+      pipVideoRef.current.srcObject = stream;
     }
   });
 

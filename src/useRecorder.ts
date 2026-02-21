@@ -245,6 +245,7 @@ export function useRecorder() {
     duration,
     error,
     saveDirName,
+    streamRef,
     videoRef,
     pickDirectory,
     clearDirectory,
