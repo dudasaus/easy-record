@@ -112,6 +112,13 @@ function App() {
     }
   }, [isCapturing, pipWindow]);
 
+  // Focus main window when entering review (after stop from PiP)
+  useEffect(() => {
+    if (state === "reviewing") {
+      window.focus();
+    }
+  }, [state]);
+
   const renderControls = () => isCapturing && (
     <div className="controls">
       {(state === "recording" || state === "paused") && (

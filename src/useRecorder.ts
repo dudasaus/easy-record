@@ -54,6 +54,8 @@ export function useRecorder() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
   const recordingBlobRef = useRef<Blob | null>(null);
+  const stateRef = useRef<RecordingState>(state);
+  stateRef.current = state;
 
   // Restore saved directory handle on mount
   useEffect(() => {
@@ -133,7 +135,12 @@ export function useRecorder() {
       }
 
       stream.getVideoTracks()[0].addEventListener("ended", () => {
-        stopRecording();
+        const s = stateRef.current;
+        if (s === "recording" || s === "paused") {
+          stopRecording();
+        } else {
+          cancelCapture();
+        }
       });
 
       setState("previewing");
