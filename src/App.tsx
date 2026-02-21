@@ -36,7 +36,9 @@ function App() {
   } = useRecorder();
 
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
-  const [pipPreviewHidden, setPipPreviewHidden] = useState(true);
+  const [pipPreviewHidden, setPipPreviewHidden] = useState(() => {
+    return localStorage.getItem("pipPreviewHidden") !== "false";
+  });
   const [overwriteWarning, setOverwriteWarning] = useState(false);
   const [fileName, setFileName] = useState("");
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -93,7 +95,7 @@ function App() {
     try {
       const pip = await (window as any).documentPictureInPicture.requestWindow({
         width: 200,
-        height: 64,
+        height: pipPreviewHidden ? 64 : 200,
       });
 
       for (const sheet of document.styleSheets) {
@@ -207,6 +209,7 @@ function App() {
         onClick={() => {
           const next = !pipPreviewHidden;
           setPipPreviewHidden(next);
+          localStorage.setItem("pipPreviewHidden", String(next));
           if (pipWindow) {
             pipWindow.resizeTo(200, next ? 64 : 200);
           }
