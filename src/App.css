@@ -394,3 +394,227 @@
   gap: 0.5rem;
   margin-top: 0.25rem;
 }
+
+/* Navigation tabs */
+.nav {
+  display: flex;
+  gap: 0;
+  margin-top: 0.5rem;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.nav-tab {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-tab:hover {
+  color: var(--text);
+}
+
+.nav-tab.active {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+/* Recordings view */
+.recordings-view {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.recordings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.recordings-header h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.recordings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recording-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: all 0.15s ease;
+}
+
+.recording-card:hover {
+  border-color: #333;
+}
+
+.recording-card.active {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.recording-info {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.recording-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recording-meta {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.recording-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.recording-player {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.recording-player video {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  background: #000;
+  display: block;
+  max-height: 400px;
+}
+
+.recording-player-close {
+  font-size: 0.8rem;
+}
+
+.recordings-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* Recent recordings widget */
+.recent-recordings {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.recent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.recent-header h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.recent-item:hover {
+  border-color: #333;
+  background: var(--surface-hover);
+}
+
+.recent-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.recent-date {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 1rem;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  animation: toast-in 0.2s ease;
+  z-index: 100;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}

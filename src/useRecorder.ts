@@ -291,6 +291,7 @@ export function useRecorder() {
     saveDirName,
     recordingUrl,
     defaultName,
+    dirHandleRef,
     streamRef,
     videoRef,
     pickDirectory,

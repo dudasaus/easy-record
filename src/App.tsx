@@ -1,11 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRecorder } from "./useRecorder";
+import { useRecordings, formatDate } from "./useRecordings";
+import RecordingsView from "./RecordingsView";
 import "./App.css";
 
 const PIP_WIDTH = 180;
 const PIP_HEIGHT_COMPACT = 48;
 const PIP_HEIGHT_PREVIEW = 180;
+
+type AppView = "home" | "recordings";
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60)
@@ -23,6 +27,7 @@ function App() {
     saveDirName,
     recordingUrl,
     defaultName,
+    dirHandleRef,
     streamRef,
     videoRef,
     pickDirectory,
@@ -39,16 +44,35 @@ function App() {
     discardRecording,
   } = useRecorder();
 
+  const [view, setView] = useState<AppView>("home");
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const [pipPreviewHidden, setPipPreviewHidden] = useState(() => {
     return localStorage.getItem("pipPreviewHidden") !== "false";
   });
   const [overwriteWarning, setOverwriteWarning] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<number>(0);
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  const getDirHandle = useCallback(() => dirHandleRef.current, [dirHandleRef]);
+  const {
+    recordings,
+    loading: recordingsLoading,
+    refresh: refreshRecordings,
+    loadDuration,
+    deleteRecording,
+  } = useRecordings(getDirHandle, saveDirName);
+
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 3000);
+  }, []);
 
   const hasPipSupport = "documentPictureInPicture" in window;
   const isCapturing = state === "previewing" || state === "recording" || state === "paused";
+  const effectiveView = state === "idle" ? view : "home";
 
   // Set default filename when entering review
   useEffect(() => {
@@ -73,8 +97,10 @@ function App() {
         return;
       }
     }
-    saveWithName(name);
-  }, [fileName, overwriteWarning, checkFileExists, saveWithName]);
+    await saveWithName(name);
+    showToast(`Saved ${name}.webm`);
+    refreshRecordings();
+  }, [fileName, overwriteWarning, checkFileExists, saveWithName, showToast, refreshRecordings]);
 
   // Sync stream to whichever video element is currently mounted
   useEffect(() => {
@@ -145,6 +171,11 @@ function App() {
       window.focus();
     }
   }, [state]);
+
+  const handleDeleteRecording = useCallback(async (name: string) => {
+    await deleteRecording(name);
+    showToast(`Deleted ${name}`);
+  }, [deleteRecording, showToast]);
 
   const renderControls = () => isCapturing && (
     <div className="controls">
@@ -301,108 +332,166 @@ function App() {
     <div className="app">
       <header className="header">
         <h1>Easy Record</h1>
-        <p className="subtitle">Screen, window, or tab recorder</p>
+        {state === "idle" && saveDirName && (
+          <nav className="nav">
+            <button
+              className={`nav-tab ${effectiveView === "home" ? "active" : ""}`}
+              onClick={() => setView("home")}
+            >
+              Record
+            </button>
+            <button
+              className={`nav-tab ${effectiveView === "recordings" ? "active" : ""}`}
+              onClick={() => { setView("recordings"); refreshRecordings(); }}
+            >
+              Recordings
+            </button>
+          </nav>
+        )}
+        {!(state === "idle" && saveDirName) && (
+          <p className="subtitle">Screen, window, or tab recorder</p>
+        )}
       </header>
 
       {error && <div className="error">{error}</div>}
 
-      {state === "idle" && !saveDirName && (
-        <div className="start-section">
-          <button className="btn btn-primary btn-lg" onClick={pickDirectory}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-            </svg>
-            Choose Save Folder
-          </button>
-          <p className="hint">Pick where recordings will be saved</p>
-        </div>
-      )}
-
-      {state === "idle" && saveDirName && (
-        <div className="start-section">
-          <button className="btn btn-primary btn-lg" onClick={async () => {
-            const granted = await ensureDirPermission();
-            if (!granted) return;
-            const ok = await startCapture();
-            if (ok && hasPipSupport && !pipWindow) togglePip();
-          }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="3" width="20" height="14" rx="2" />
-              <line x1="8" y1="21" x2="16" y2="21" />
-              <line x1="12" y1="17" x2="12" y2="21" />
-            </svg>
-            Select Source
-          </button>
-          <p className="hint">
-            Saving to <strong>{saveDirName}</strong>
-            {" \u2014 "}
-            <button className="btn-link" onClick={pickDirectory}>change</button>
-            {import.meta.env.DEV && (
-              <>{" \u2014 "}<button className="btn-link" onClick={clearDirectory}>clear</button></>
-            )}
-          </p>
-        </div>
-      )}
-
-      {/* Main window preview — hidden when PiP is active */}
-      {isCapturing && !pipWindow && (
-        <div className="preview-container active">
-          <video ref={videoRef} autoPlay muted playsInline />
-          {renderControls()}
-        </div>
-      )}
-
-      {/* When PiP is active, show a placeholder in main window */}
-      {pipWindow && isCapturing && (
-        <div className="pip-placeholder">
-          <p>Playing in Picture-in-Picture</p>
-          <button className="btn btn-secondary" onClick={togglePip}>
-            Return to window
-          </button>
-        </div>
-      )}
-
-      {/* Review screen */}
-      {state === "reviewing" && recordingUrl && (
-        <div className="review-container">
-          <video src={recordingUrl} controls />
-          <div className="review-form">
-            <label className="review-label" htmlFor="filename">File name</label>
-            <div className="review-input-row">
-              <input
-                id="filename"
-                type="text"
-                className={`review-input ${overwriteWarning ? "review-input-warn" : ""}`}
-                value={fileName}
-                onChange={(e) => setFileName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && fileName.trim()) handleSave();
-                }}
-                autoFocus
-              />
-              <span className="review-ext">.webm</span>
-            </div>
-            {overwriteWarning && (
-              <p className="overwrite-warning">A file with this name already exists. Click save again to overwrite.</p>
-            )}
-            <div className="review-actions">
-              <button
-                className={`btn ${overwriteWarning ? "btn-stop" : "btn-primary"}`}
-                onClick={handleSave}
-                disabled={!fileName.trim()}
-              >
-                {overwriteWarning ? "Overwrite" : "Save"}
+      {effectiveView === "home" && (
+        <>
+          {state === "idle" && !saveDirName && (
+            <div className="start-section">
+              <button className="btn btn-primary btn-lg" onClick={pickDirectory}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+                Choose Save Folder
               </button>
-              <button className="btn btn-secondary" onClick={discardRecording}>
-                Discard
+              <p className="hint">Pick where recordings will be saved</p>
+            </div>
+          )}
+
+          {state === "idle" && saveDirName && (
+            <div className="start-section">
+              <button className="btn btn-primary btn-lg" onClick={async () => {
+                const granted = await ensureDirPermission();
+                if (!granted) return;
+                const ok = await startCapture();
+                if (ok && hasPipSupport && !pipWindow) togglePip();
+              }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+                Select Source
+              </button>
+              <p className="hint">
+                Saving to <strong>{saveDirName}</strong>
+                {" \u2014 "}
+                <button className="btn-link" onClick={pickDirectory}>change</button>
+                {import.meta.env.DEV && (
+                  <>{" \u2014 "}<button className="btn-link" onClick={clearDirectory}>clear</button></>
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* Recent recordings widget */}
+          {state === "idle" && saveDirName && recordings.length > 0 && (
+            <div className="recent-recordings">
+              <div className="recent-header">
+                <h3>Recent</h3>
+                <button className="btn-link" onClick={() => { setView("recordings"); refreshRecordings(); }}>
+                  View all
+                </button>
+              </div>
+              <div className="recent-list">
+                {recordings.slice(0, 3).map((rec) => (
+                  <button
+                    key={rec.name}
+                    className="recent-item"
+                    onClick={() => { setView("recordings"); refreshRecordings(); }}
+                  >
+                    <span className="recent-name">{rec.name.replace(/\.webm$/, "")}</span>
+                    <span className="recent-date">{formatDate(rec.lastModified)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Main window preview — hidden when PiP is active */}
+          {isCapturing && !pipWindow && (
+            <div className="preview-container active">
+              <video ref={videoRef} autoPlay muted playsInline />
+              {renderControls()}
+            </div>
+          )}
+
+          {/* When PiP is active, show a placeholder in main window */}
+          {pipWindow && isCapturing && (
+            <div className="pip-placeholder">
+              <p>Playing in Picture-in-Picture</p>
+              <button className="btn btn-secondary" onClick={togglePip}>
+                Return to window
               </button>
             </div>
-          </div>
-        </div>
+          )}
+
+          {/* Review screen */}
+          {state === "reviewing" && recordingUrl && (
+            <div className="review-container">
+              <video src={recordingUrl} controls />
+              <div className="review-form">
+                <label className="review-label" htmlFor="filename">File name</label>
+                <div className="review-input-row">
+                  <input
+                    id="filename"
+                    type="text"
+                    className={`review-input ${overwriteWarning ? "review-input-warn" : ""}`}
+                    value={fileName}
+                    onChange={(e) => setFileName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && fileName.trim()) handleSave();
+                    }}
+                    autoFocus
+                  />
+                  <span className="review-ext">.webm</span>
+                </div>
+                {overwriteWarning && (
+                  <p className="overwrite-warning">A file with this name already exists. Click save again to overwrite.</p>
+                )}
+                <div className="review-actions">
+                  <button
+                    className={`btn ${overwriteWarning ? "btn-stop" : "btn-primary"}`}
+                    onClick={handleSave}
+                    disabled={!fileName.trim()}
+                  >
+                    {overwriteWarning ? "Overwrite" : "Save"}
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => { discardRecording(); showToast("Recording discarded"); }}>
+                    Discard
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {effectiveView === "recordings" && (
+        <RecordingsView
+          recordings={recordings}
+          loading={recordingsLoading}
+          onRefresh={refreshRecordings}
+          onLoadDuration={loadDuration}
+          onDelete={handleDeleteRecording}
+        />
       )}
 
       {/* Portal controls + video into PiP window */}
       {pipWindow && createPortal(pipContent, pipWindow.document.body)}
+
+      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }
