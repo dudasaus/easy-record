@@ -1,73 +1,40 @@
-# React + TypeScript + Vite
+# Easy Record
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A progressive web app for recording your screen, window, or browser tab and saving locally.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Screen, window, or tab capture** at 60 FPS with audio via the Screen Capture API
+- **Recording controls** — record, pause/resume, stop with a live duration timer
+- **Picture-in-Picture mode** — floating mini window with icon-only controls, toggleable live preview, and persistent size/visibility preferences
+- **Local file saving** — pick a save directory once via the File System Access API; recordings write directly to disk as `.webm` files
+- **Directory persistence** — chosen folder is remembered across sessions via IndexedDB with automatic permission re-requests
+- **Post-recording review** — preview your recording and name it before saving, with overwrite warnings for existing files
+- **Recordings library** — browse all saved recordings with file name, date, duration, and size; play inline or delete
+- **Recent recordings widget** — last 3 recordings shown on the home screen for quick access
+- **Toast notifications** — confirmation messages for save, delete, and discard actions
+- **Installable PWA** — standalone app experience with service worker, offline support, and app icons
+- **Dark theme** — minimal dark UI with indigo accents
 
-## React Compiler
+## Tech
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19 + TypeScript + Vite
+- `getDisplayMedia` + `MediaRecorder` (VP9/Opus in WebM)
+- File System Access API (`showDirectoryPicker`, `FileSystemDirectoryHandle`)
+- Document Picture-in-Picture API
+- IndexedDB + localStorage for persistence
+- `vite-plugin-pwa` for service worker and manifest
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+pnpm install
+pnpm dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Build
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+pnpm build
+pnpm preview
 ```
