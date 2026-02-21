@@ -97,6 +97,15 @@ export function useRecorder() {
     }
   }, []);
 
+  const clearDirectory = useCallback(async () => {
+    dirHandleRef.current = null;
+    setSaveDirName(null);
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    tx.objectStore(STORE_NAME).delete(DIR_KEY);
+    db.close();
+  }, []);
+
   // Re-request permission for a stored handle (needs user gesture)
   const ensureDirPermission = useCallback(async (): Promise<boolean> => {
     const handle = dirHandleRef.current;
@@ -238,6 +247,7 @@ export function useRecorder() {
     saveDirName,
     videoRef,
     pickDirectory,
+    clearDirectory,
     ensureDirPermission,
     startCapture,
     startRecording,

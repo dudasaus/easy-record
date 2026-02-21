@@ -19,6 +19,7 @@ function App() {
     saveDirName,
     videoRef,
     pickDirectory,
+    clearDirectory,
     ensureDirPermission,
     startCapture,
     startRecording,
@@ -205,19 +206,23 @@ function App() {
 
       {error && <div className="error">{error}</div>}
 
-      {!isActive && (
+      {!isActive && !saveDirName && (
+        <div className="start-section">
+          <button className="btn btn-primary btn-lg" onClick={pickDirectory}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+            Choose Save Folder
+          </button>
+          <p className="hint">Pick where recordings will be saved</p>
+        </div>
+      )}
+
+      {!isActive && saveDirName && (
         <div className="start-section">
           <button className="btn btn-primary btn-lg" onClick={async () => {
-            if (saveDirName) {
-              const granted = await ensureDirPermission();
-              if (!granted) {
-                const picked = await pickDirectory();
-                if (!picked) return;
-              }
-            } else {
-              const picked = await pickDirectory();
-              if (!picked) return;
-            }
+            const granted = await ensureDirPermission();
+            if (!granted) return;
             const ok = await startCapture();
             if (ok && hasPipSupport && !pipWindow) togglePip();
           }}>
@@ -228,15 +233,14 @@ function App() {
             </svg>
             Select Source
           </button>
-          {saveDirName ? (
-            <p className="hint">
-              Saving to <strong>{saveDirName}</strong>
-              {" \u2014 "}
-              <button className="btn-link" onClick={pickDirectory}>change</button>
-            </p>
-          ) : (
-            <p className="hint">Choose a save folder, then select a screen to record</p>
-          )}
+          <p className="hint">
+            Saving to <strong>{saveDirName}</strong>
+            {" \u2014 "}
+            <button className="btn-link" onClick={pickDirectory}>change</button>
+            {import.meta.env.DEV && (
+              <>{" \u2014 "}<button className="btn-link" onClick={clearDirectory}>clear</button></>
+            )}
+          </p>
         </div>
       )}
 
