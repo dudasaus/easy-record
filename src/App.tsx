@@ -94,8 +94,8 @@ function App() {
 
     try {
       const pip = await (window as any).documentPictureInPicture.requestWindow({
-        width: 200,
-        height: pipPreviewHidden ? 64 : 200,
+        width: 180,
+        height: pipPreviewHidden ? 48 : 180,
       });
 
       for (const sheet of document.styleSheets) {
@@ -200,37 +200,96 @@ function App() {
     </div>
   );
 
+  const togglePreviewBtn = (
+    <button
+      className="btn btn-icon btn-toggle-preview"
+      onClick={() => {
+        const next = !pipPreviewHidden;
+        setPipPreviewHidden(next);
+        localStorage.setItem("pipPreviewHidden", String(next));
+        if (pipWindow) {
+          pipWindow.resizeTo(180, next ? 64 : 200);
+        }
+      }}
+      title={pipPreviewHidden ? "Show preview" : "Hide preview"}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {pipPreviewHidden ? (
+          <>
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </>
+        ) : (
+          <>
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+            <line x1="1" y1="1" x2="23" y2="23" />
+          </>
+        )}
+      </svg>
+    </button>
+  );
+
+  const pipControls = isCapturing && (
+    <div className="pip-controls">
+      {state === "previewing" && (
+        <>
+          <button className="btn btn-icon btn-record" onClick={startRecording} title="Record">
+            <span className="rec-icon" />
+          </button>
+          <button className="btn btn-icon btn-secondary" onClick={cancelCapture} title="Cancel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          {togglePreviewBtn}
+        </>
+      )}
+
+      {state === "recording" && (
+        <>
+          <div className={`pip-timer recording`}>
+            <span className="rec-dot" />
+            {formatTime(duration)}
+          </div>
+          <button className="btn btn-icon btn-secondary" onClick={pauseRecording} title="Pause">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="6" y="4" width="4" height="16" />
+              <rect x="14" y="4" width="4" height="16" />
+            </svg>
+          </button>
+          <button className="btn btn-icon btn-stop" onClick={stopRecording} title="Stop">
+            <span className="stop-icon" />
+          </button>
+          {togglePreviewBtn}
+        </>
+      )}
+
+      {state === "paused" && (
+        <>
+          <div className="pip-timer">
+            <span className="rec-dot" style={{ animation: "none", opacity: 0.5 }} />
+            {formatTime(duration)}
+          </div>
+          <button className="btn btn-icon btn-primary" onClick={resumeRecording} title="Resume">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="5,3 19,12 5,21" />
+            </svg>
+          </button>
+          <button className="btn btn-icon btn-stop" onClick={stopRecording} title="Stop">
+            <span className="stop-icon" />
+          </button>
+          {togglePreviewBtn}
+        </>
+      )}
+    </div>
+  );
+
   const pipContent = pipWindow && (
     <div className={`preview-container active pip-mode ${pipPreviewHidden ? "preview-hidden" : ""}`}>
       {!pipPreviewHidden && <video ref={pipVideoRef} autoPlay muted playsInline />}
-      {renderControls()}
-      <button
-        className="btn btn-icon btn-toggle-preview"
-        onClick={() => {
-          const next = !pipPreviewHidden;
-          setPipPreviewHidden(next);
-          localStorage.setItem("pipPreviewHidden", String(next));
-          if (pipWindow) {
-            pipWindow.resizeTo(200, next ? 64 : 200);
-          }
-        }}
-        title={pipPreviewHidden ? "Show preview" : "Hide preview"}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          {pipPreviewHidden ? (
-            <>
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-              <circle cx="12" cy="12" r="3" />
-            </>
-          ) : (
-            <>
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-              <line x1="1" y1="1" x2="23" y2="23" />
-            </>
-          )}
-        </svg>
-      </button>
+      {pipControls}
     </div>
   );
 
